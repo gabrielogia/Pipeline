@@ -68,7 +68,27 @@ def process_row(row):
 
 # Replace only the first occurrence of 'C=C' with '[Br]C(Br)'
 def replace_first_cce(smiles):
-    return smiles.replace('C=C', '[Br]C(Br)', 1)
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError("Invalid SMILES string")
+    
+    # Find the first C=C double bond
+    for bond in mol.GetBonds():
+        if bond.GetBondType() == Chem.BondType.DOUBLE:
+            atom1 = bond.GetBeginAtom()
+            atom2 = bond.GetEndAtom()
+            if atom1.GetSymbol() == 'C' and atom2.GetSymbol() == 'C':
+                # Instead of SMILES replacement, modify the molecule
+                mol = Chem.RWMol(mol)
+                bond.SetBondType(Chem.BondType.SINGLE)
+                # Add Br atoms
+                br1 = mol.AddAtom(Chem.Atom('Br'))
+                br2 = mol.AddAtom(Chem.Atom('Br'))
+                mol.AddBond(atom1.GetIdx(), br1, Chem.BondType.SINGLE)
+                mol.AddBond(atom2.GetIdx(), br2, Chem.BondType.SINGLE)
+                return Chem.MolToSmiles(mol)
+    
+    return smiles  # No double bond found, return original
 
 # Fixed monomers and their IDs (assuming these IDs exist in df)
 fixed_monomer_1 = 'C=CC(=O)O'
@@ -85,7 +105,7 @@ df_candidates = df[df['smiles'].str.count('C=C') == 1].copy()
 # For reproducibility, sort and take top 50
 df_candidates = df_candidates.reset_index(drop=True)
 
-candidates_smls = df_candidates['smiles'].tolist()[:150]
+candidates_smls = df_candidates['smiles'].tolist()[:250]
 
 # Replace first 'C=C' occurrence with bromo for candidates
 candidates_bromo = [replace_first_cce(s) for s in candidates_smls]
@@ -138,16 +158,32 @@ results = Parallel(n_jobs=-1, backend='loky')(
     delayed(process_row)(row) for _, row in tqdm(df.iterrows(), total=len(df))
 )
 
-# Build copolymers: fixed1 + candidates
-print("Building copolymers: fixed1 + candidates...")
-for i, cand_bromo in enumerate(candidates_bromo, start=1):
-    build_and_save_copolymer(fixed1_bromo, cand_bromo, f"copoly_fixed1_cand{i}")
+# Function to wrap build_and_save_copolymer for parallel execution
+def process_copolymer(sml1_bromo, sml2_bromo, out_name):
+    try:
+        build_and_save_copolymer(sml1_bromo, sml2_bromo, out_name)
+        return f"Completed copolymer: {out_name}"
+    except Exception as e:
+        logging.error(f"Failed to process copolymer {out_name}: {str(e)}")
+        return f"Skipping copolymer {out_name}: Exception occurred - {str(e)}"
 
-# Build copolymers: fixed2 + candidates
-print("Building copolymers: fixed2 + candidates...")
-for i, cand_bromo in enumerate(candidates_bromo, start=1):
-    build_and_save_copolymer(fixed2_bromo, cand_bromo, f"copoly_fixed2_cand{i}")
+# Generate tasks for all copolymers
+copolymer_tasks = []
 
-# Build copolymer between fixed1 and fixed2
-print("Building copolymer: fixed1 + fixed2...")
-build_and_save_copolymer(fixed1_bromo, fixed2_bromo, "copoly_fixed1_fixed2")
+# Tasks for fixed1 + candidates
+for i, cand_bromo in enumerate(candidates_bromo, start=1):
+    copolymer_tasks.append((fixed1_bromo, cand_bromo, f"copoly_fixed1_cand{i}"))
+
+# Tasks for fixed2 + candidates
+for i, cand_bromo in enumerate(candidates_bromo, start=1):
+    copolymer_tasks.append((fixed2_bromo, cand_bromo, f"copoly_fixed2_cand{i}"))
+
+# Task for fixed1 + fixed2
+copolymer_tasks.append((fixed1_bromo, fixed2_bromo, "copoly_fixed1_fixed2"))
+
+# Parallel execution of copolymer generation
+print("Building all copolymers in parallel...")
+results = Parallel(n_jobs=-1, backend='loky')(
+    delayed(process_copolymer)(sml1_bromo, sml2_bromo, out_name)
+    for sml1_bromo, sml2_bromo, out_name in tqdm(copolymer_tasks, total=len(copolymer_tasks))
+)
