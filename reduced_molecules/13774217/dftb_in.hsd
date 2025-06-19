@@ -1,0 +1,39 @@
+Geometry = xyzFormat {
+   <<< '../../xyz_files/13774217.xyz'
+}
+
+Driver = GeometryOptimization {
+   Optimizer = Rational {}
+   MaxSteps = 10000
+   OutputPrefix = '13774217'
+   Convergence { GradElem = 1E-4 }
+}
+
+Hamiltonian = DFTB {
+   SCC = Yes
+   SCCTolerance = 1e-9
+   MaxSCCIterations = 1000
+
+   MaxAngularMomentum = {
+      Br = "d"
+      C = "p"
+      H = "s"
+      O = "p"
+   }
+   SlaterKosterFiles = Type2FileNames {
+      Prefix = '../../3ob-3-1/'
+      Separator = '-'
+      Suffix = '.skf'
+      LowerCaseTypeName = No
+   }
+}
+
+Analysis = {
+  Polarisability = {
+    Static = Yes
+    }
+}
+
+ParserOptions {
+   ParserVersion = 14
+}

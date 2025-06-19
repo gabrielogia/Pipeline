@@ -1,0 +1,2 @@
+Successfully completed DFTB+ for xyz_files/39485.xyz at 2025-06-18 19:33:30.493951
+Error: Failed to run DFTB+ for xyz_files/39485.xyz at 2025-06-18 19:33:30.494012: [Errno 2] No such file or directory: 'molecules/39485/process.log'

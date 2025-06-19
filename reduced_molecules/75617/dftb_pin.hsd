@@ -1,0 +1,131 @@
+Geometry = xyzFormat {
+22
+Molecule ID: 75617
+C -2.825406 1.340678 -2.628723
+C -2.588084 0.105932 -2.266874
+C -1.900839 -0.153650 -1.000559
+O -1.664032 -1.347579 -0.636978
+O -1.488174 0.854525 -0.163508
+C -0.827944 0.734097 1.059939
+C 0.475716 0.051726 0.963239
+C 1.644744 0.715301 0.605372
+C 2.864294 0.120239 0.526641
+C 2.967885 -1.231816 0.817800
+C 1.834165 -1.931647 1.178029
+C 0.596373 -1.284237 1.248278
+H -2.540143 2.208248 -2.038840
+H -3.334002 1.579559 -3.562769
+H -2.886772 -0.717505 -2.878913
+H -0.591199 1.789094 1.381245
+H -1.471547 0.286822 1.855080
+H 1.568489 1.772411 0.376890
+H 3.760468 0.659004 0.245425
+H 3.938716 -1.741713 0.763183
+H 1.902466 -2.977915 1.405417
+H -0.225319 -1.909264 1.549251
+}
+Driver = GeometryOptimization {
+  Optimizer = Rational {
+    DiagLimit = 1.0000000000000000E-002
+  }
+  MaxSteps = 10000
+  OutputPrefix = '75617'
+  Convergence = {
+    GradElem = 1E-4
+    Energy = 1.7976931348623157E+308
+    GradNorm = 1.7976931348623157E+308
+    DispNorm = 1.7976931348623157E+308
+    DispElem = 1.7976931348623157E+308
+  }
+  LatticeOpt = No
+  MovedAtoms = "1:-1"
+  AppendGeometries = No
+}
+Hamiltonian = DFTB {
+  SCC = Yes
+  SCCTolerance = 1e-9
+  MaxSCCIterations = 1000
+  MaxAngularMomentum = {
+    C = "p"
+    H = "s"
+    O = "p"
+  }
+  SlaterKosterFiles = Type2FileNames {
+    Prefix = '../../3ob-3-1/'
+    Separator = '-'
+    Suffix = '.skf'
+    LowerCaseTypeName = No
+  }
+  PolynomialRepulsive = {}
+  ShellResolvedSCC = No
+  OldSKInterpolation = No
+  ReadInitialCharges = No
+  InitialCharges = {}
+  ConvergentSCCOnly = Yes
+  HCorrection = None {}
+  SpinPolarisation = {}
+  ElectricField = {}
+  Solver = RelativelyRobust {}
+  Charge = 0.0000000000000000
+  OnSiteCorrection = {}
+  Dispersion = {}
+  Solvation = {}
+  Electrostatics = GammaFunctional {}
+  ThirdOrder = No
+  ThirdOrderFull = No
+  Differentiation = FiniteDiff {
+    Delta = 1.2207031250000000E-004
+  }
+  ForceEvaluation = "Traditional"
+  Mixer = Broyden {
+    MixingParameter = 0.20000000000000001
+    InverseJacobiWeight = 1.0000000000000000E-002
+    MinimalWeight = 1.0000000000000000
+    MaximalWeight = 100000.00000000000
+    WeightFactor = 1.0000000000000000E-002
+  }
+  Filling = Fermi {
+    Temperature = 0.0000000000000000
+  }
+}
+Analysis = {
+  Polarisability = {
+    Static = Yes
+  }
+  ProjectStates = {}
+  WriteEigenvectors = No
+  WriteBandOut = Yes
+  PertubDegenTol = 128.00000000000000
+  MaxPerturbIter = 100
+  PerturbSccTol = 1.0000000000000001E-005
+  ConvergedPerturb = Yes
+  MullikenAnalysis = Yes
+  WriteNetCharges = No
+  AtomResolvedEnergies = No
+  PrintForces = No
+}
+ParserOptions = {
+  ParserVersion = 14
+  WriteHSDInput = Yes
+  StopAfterParsing = No
+  IgnoreUnprocessedNodes = No
+}
+Reks = None {}
+ExcitedState = {}
+Options = {
+  WriteDetailedOut = Yes
+  WriteAutotestTag = No
+  WriteDetailedXML = No
+  WriteResultsTag = No
+  RandomSeed = 0
+  WriteHS = No
+  WriteRealHS = No
+  MinimiseMemoryUsage = No
+  ShowFoldedCoords = No
+  TimingVerbosity = 1
+  WriteCharges = Yes
+  WriteChargesAsText = No
+  BinaryAccessTypes = {
+ "stream"
+  }
+}

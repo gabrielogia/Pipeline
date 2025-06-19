@@ -1,0 +1,135 @@
+Geometry = xyzFormat {
+26
+Molecule ID: 39485
+C -4.104412 0.192449 0.281755
+C -3.737644 -0.402987 1.397115
+C -2.395575 -0.172943 1.899870
+O -2.005285 -0.719243 2.957081
+O -1.530307 0.642744 1.232524
+C -0.213171 0.951382 1.601717
+C 0.686611 -0.230164 1.683976
+O 0.879244 -0.984431 0.570069
+C 1.386227 -0.786747 -0.660467
+C 1.913888 0.367094 -1.164928
+C 2.421398 0.504205 -2.452424
+C 2.396953 -0.592127 -3.287955
+C 1.870502 -1.784059 -2.816957
+C 1.376464 -1.884366 -1.536905
+H -5.086531 0.042822 -0.113964
+H -3.437812 0.847253 -0.271551
+H -4.449874 -1.040963 1.896695
+H 0.165788 1.694439 0.883842
+H -0.267939 1.506153 2.586004
+H 0.267630 -0.908383 2.490824
+H 1.699734 0.083033 2.072975
+H 1.952322 1.235921 -0.526247
+H 2.832838 1.451200 -2.807771
+H 2.784280 -0.525899 -4.302208
+H 1.830173 -2.682531 -3.445206
+H 0.959357 -2.827819 -1.162931
+}
+Driver = GeometryOptimization {
+  Optimizer = Rational {
+    DiagLimit = 1.0000000000000000E-002
+  }
+  MaxSteps = 10000
+  OutputPrefix = '39485'
+  Convergence = {
+    GradElem = 1E-4
+    Energy = 1.7976931348623157E+308
+    GradNorm = 1.7976931348623157E+308
+    DispNorm = 1.7976931348623157E+308
+    DispElem = 1.7976931348623157E+308
+  }
+  LatticeOpt = No
+  MovedAtoms = "1:-1"
+  AppendGeometries = No
+}
+Hamiltonian = DFTB {
+  SCC = Yes
+  SCCTolerance = 1e-9
+  MaxSCCIterations = 1000
+  MaxAngularMomentum = {
+    C = "p"
+    H = "s"
+    O = "p"
+  }
+  SlaterKosterFiles = Type2FileNames {
+    Prefix = '../../3ob-3-1/'
+    Separator = '-'
+    Suffix = '.skf'
+    LowerCaseTypeName = No
+  }
+  PolynomialRepulsive = {}
+  ShellResolvedSCC = No
+  OldSKInterpolation = No
+  ReadInitialCharges = No
+  InitialCharges = {}
+  ConvergentSCCOnly = Yes
+  HCorrection = None {}
+  SpinPolarisation = {}
+  ElectricField = {}
+  Solver = RelativelyRobust {}
+  Charge = 0.0000000000000000
+  OnSiteCorrection = {}
+  Dispersion = {}
+  Solvation = {}
+  Electrostatics = GammaFunctional {}
+  ThirdOrder = No
+  ThirdOrderFull = No
+  Differentiation = FiniteDiff {
+    Delta = 1.2207031250000000E-004
+  }
+  ForceEvaluation = "Traditional"
+  Mixer = Broyden {
+    MixingParameter = 0.20000000000000001
+    InverseJacobiWeight = 1.0000000000000000E-002
+    MinimalWeight = 1.0000000000000000
+    MaximalWeight = 100000.00000000000
+    WeightFactor = 1.0000000000000000E-002
+  }
+  Filling = Fermi {
+    Temperature = 0.0000000000000000
+  }
+}
+Analysis = {
+  Polarisability = {
+    Static = Yes
+  }
+  ProjectStates = {}
+  WriteEigenvectors = No
+  WriteBandOut = Yes
+  PertubDegenTol = 128.00000000000000
+  MaxPerturbIter = 100
+  PerturbSccTol = 1.0000000000000001E-005
+  ConvergedPerturb = Yes
+  MullikenAnalysis = Yes
+  WriteNetCharges = No
+  AtomResolvedEnergies = No
+  PrintForces = No
+}
+ParserOptions = {
+  ParserVersion = 14
+  WriteHSDInput = Yes
+  StopAfterParsing = No
+  IgnoreUnprocessedNodes = No
+}
+Reks = None {}
+ExcitedState = {}
+Options = {
+  WriteDetailedOut = Yes
+  WriteAutotestTag = No
+  WriteDetailedXML = No
+  WriteResultsTag = No
+  RandomSeed = 0
+  WriteHS = No
+  WriteRealHS = No
+  MinimiseMemoryUsage = No
+  ShowFoldedCoords = No
+  TimingVerbosity = 1
+  WriteCharges = Yes
+  WriteChargesAsText = No
+  BinaryAccessTypes = {
+ "stream"
+  }
+}

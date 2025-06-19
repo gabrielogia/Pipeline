@@ -21,6 +21,7 @@ with open(LOG_FILE, "w") as log:
 
 # Find dftb+ executable
 DFTBPLUS_PATH = os.environ.get("DFTBPLUS_PATH", None)
+print(DFTBPLUS_PATH)
 if DFTBPLUS_PATH and os.path.isfile(DFTBPLUS_PATH):
     dftbplus_cmd = [DFTBPLUS_PATH]
 else:
