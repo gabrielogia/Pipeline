@@ -136,7 +136,7 @@ Driver = GeometryOptimization {{
 
 Hamiltonian = DFTB {{
    SCC = Yes
-   SCCTolerance = 1e-8
+   SCCTolerance = 1e-9
    MaxSCCIterations = 1000
 
    MaxAngularMomentum = {{
@@ -151,6 +151,12 @@ Hamiltonian = DFTB {{
       Suffix = '.skf'
       LowerCaseTypeName = No
    }}
+}}
+
+Analysis = {{
+  Polarisability = {{
+    Static = Yes
+    }}
 }}
 
 ParserOptions {{
