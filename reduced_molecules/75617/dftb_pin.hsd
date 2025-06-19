@@ -56,6 +56,9 @@ Hamiltonian = DFTB {
     Suffix = '.skf'
     LowerCaseTypeName = No
   }
+  Filling = Fermi {
+    Temperature [K] = 300
+  }
   PolynomialRepulsive = {}
   ShellResolvedSCC = No
   OldSKInterpolation = No
@@ -84,9 +87,6 @@ Hamiltonian = DFTB {
     MaximalWeight = 100000.00000000000
     WeightFactor = 1.0000000000000000E-002
   }
-  Filling = Fermi {
-    Temperature = 0.0000000000000000
-  }
 }
 Analysis = {
   Polarisability = {
@@ -103,6 +103,32 @@ Analysis = {
   WriteNetCharges = No
   AtomResolvedEnergies = No
   PrintForces = No
+}
+ElectronDynamics = {
+  Steps = 30000
+  TimeStep [au] = 0.1
+  Perturbation = Kick {
+    PolarizationDirection = all
+    SpinType = "Singlet"
+  }
+  FieldStrength [v/a] = 0.001
+  Populations = No
+  WriteFrequency = 50
+  Restart = No
+  WriteRestart = Yes
+  WriteAsciiRestart = No
+  RestartFrequency = 3000
+  Forces = No
+  WriteBondEnergy = No
+  WriteBondPopulation = No
+  WriteAtomicEnergies = No
+  Pump = No
+  FillingsFromFile = No
+  Probe = No
+  EulerFrequency = 0
+  WriteEnergyAndCharges = No
+  EnvelopeShape = Constant {}
+  IonDynamics = No
 }
 ParserOptions = {
   ParserVersion = 14

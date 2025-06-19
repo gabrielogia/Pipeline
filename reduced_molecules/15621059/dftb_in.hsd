@@ -1,5 +1,5 @@
 Geometry = xyzFormat {
-   <<< '../../xyz_files/15621059.xyz'
+   <<< '../../reduced_xyz_files/15621059.xyz'
 }
 
 Driver = GeometryOptimization {
@@ -19,11 +19,16 @@ Hamiltonian = DFTB {
       H = "s"
       O = "p"
    }
+
    SlaterKosterFiles = Type2FileNames {
       Prefix = '../../3ob-3-1/'
       Separator = '-'
       Suffix = '.skf'
       LowerCaseTypeName = No
+   }
+
+   Filling = Fermi {
+    Temperature [K] = 300
    }
 }
 
@@ -31,6 +36,15 @@ Analysis = {
   Polarisability = {
     Static = Yes
     }
+}
+
+ElectronDynamics = {
+   Steps = 30000
+   TimeStep [au] = 0.1
+   Perturbation = Kick {
+     PolarizationDirection = all
+   }
+   FieldStrength [v/a] = 0.001
 }
 
 ParserOptions {
