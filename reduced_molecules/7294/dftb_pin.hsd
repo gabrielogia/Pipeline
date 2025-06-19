@@ -96,7 +96,7 @@ Analysis = {
 }
 ElectronDynamics = {
   Steps = 30000
-  TimeStep [au] = 0.001
+  TimeStep [au] = 0.1
   Perturbation = Kick {
     PolarizationDirection = all
     SpinType = "Singlet"
