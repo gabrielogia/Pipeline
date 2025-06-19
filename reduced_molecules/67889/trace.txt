@@ -1,2 +1,2 @@
 File Path, Polarizability Trace (a.u.)
-67889/detailed.out, 139.098998
+67889/detailed.out, 6.870781

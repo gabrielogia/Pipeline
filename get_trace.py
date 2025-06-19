@@ -27,7 +27,7 @@ def read_polarizability(file_path):
 def compute_trace(matrix):
     """Compute the trace of a 3x3 matrix."""
     if matrix is not None and matrix.shape == (3, 3):
-        return np.trace(matrix)
+        return np.trace(matrix)*0.1481847/3
     return None
 
 def write_trace_file(subfolder_path, trace):
