@@ -1,226 +1,186 @@
-import os
-import glob
-import subprocess
-from multiprocessing import Pool
-from pathlib import Path
-from datetime import datetime
-import time
+import pandas as pd
+import os, logging, stk
+from rdkit import Chem
+from rdkit.Chem import AllChem
+from tqdm import tqdm
+from joblib import Parallel, delayed
 
-# Define directories
-XYZ_DIR = "xyz_files"
-MOLECULES_DIR = "molecules"
-SK_DIR = "3ob-3-1"  # Adjust if Slater-Koster files are elsewhere
-LOG_FILE = "dftb_pipeline.log"
+# Set up logging to suppress UFFTYPER warnings and capture errors
+logging.getLogger('rdkit').setLevel(logging.ERROR)  # Suppress RDKit warnings
+logging.basicConfig(filename='xyz_generation_errors.log', level=logging.INFO,
+                    format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Ensure molecules directory exists
-os.makedirs(MOLECULES_DIR, exist_ok=True)
+# Load and merge data
+df = pd.read_csv('PubChem_compound_text_Acrylate.csv')
+df = df.rename(columns={' cid': 'id'})
+pub_chem_db = pd.read_csv('pubchem_db.txt', sep='\t', names=['id', 'smiles'])
+df = df.merge(pub_chem_db, on='id')
 
-# Initialize log
-with open(LOG_FILE, "w") as log:
-    log.write(f"Starting DFTB+ pipeline at {datetime.now()}\n")
+# Create output directory if it doesn't exist
+output_dir = 'xyz_files'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
-# Find dftb+ executable
-DFTBPLUS_PATH = os.environ.get("DFTBPLUS_PATH", None)
-if DFTBPLUS_PATH and os.path.isfile(DFTBPLUS_PATH):
-    dftbplus_cmd = [DFTBPLUS_PATH]
-else:
-    # Try common locations and psi4conda path
-    possible_paths = [
-        "/home/jgduarte/psi4conda/bin/dftb+",  # Your specific path
-        "/usr/local/bin/dftb+",
-        "/usr/bin/dftb+",
-        os.path.expanduser("~/bin/dftb+"),
-        os.path.expanduser("~/dftbplus/bin/dftb+")
-    ]
-    dftbplus_cmd = ["dftb+"]
-    for path in possible_paths:
-        if os.path.isfile(path):
-            dftbplus_cmd = [path]
-            break
-    # Verify dftb+ is accessible
-    try:
-        subprocess.run(dftbplus_cmd + ["--version"], capture_output=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        with open(LOG_FILE, "a") as log:
-            log.write("Error: dftb+ not found in PATH or common locations. Set DFTBPLUS_PATH environment variable or ensure /home/jgduarte/psi4conda/bin/dftb+ is accessible.\n")
-        raise SystemExit(1)
+# Write XYZ file function unchanged
+def write_xyz_file(mol, filename):
+    conf = mol.GetConformer()
+    num_atoms = mol.GetNumAtoms()
+    with open(filename, 'w') as f:
+        f.write(f"{num_atoms}\n")
+        f.write(f"Molecule ID: {os.path.basename(filename).split('.')[0]}\n")
+        for i in range(num_atoms):
+            atom = mol.GetAtomWithIdx(i)
+            pos = conf.GetAtomPosition(i)
+            symbol = atom.GetSymbol()
+            f.write(f"{symbol} {pos.x:.6f} {pos.y:.6f} {pos.z:.6f}\n")
 
-def get_angular_momentum(element):
-    """Get MaxAngularMomentum for an element."""
-    s_elements = {"H", "Li", "Na", "K", "Rb", "Cs", "Fr", "He", "Ne", "Ar", "Kr", "Xe", "Rn"}
-    p_elements = {"Be", "Mg", "Ca", "Sr", "Ba", "Ra", "B", "Al", "Ga", "In", "Tl", "C", "Si", "Ge", "Sn", "Pb", "N", "P", "As", "Sb", "Bi", "O", "Se", "Te", "Po"}
-    d_elements = {"F", "Cl", "Br", "I", "At", "S", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu", "Zn", "Y", "Zr", "Nb", "Mo", "Tc", "Ru", "Rh", "Pd", "Ag", "Cd", "La", "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu", "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Ac", "Th", "Pa", "U", "Np", "Pu", "Cm", "Bk", "Cf", "Es", "Fm", "Md", "No", "Lr"}
+# Function to process a single molecule row (for monomer .xyz generation)
+def process_row(row):
+    mol_id = row['id']
+    sml = row['smiles']
     
-    if element in s_elements:
-        return "s"
-    elif element in p_elements:
-        return "p"
-    elif element in d_elements:
-        return "d"
-    else:
-        with open(LOG_FILE, "a") as log:
-            log.write(f"Warning: Unknown element {element}, using default 'p' at {datetime.now()}\n")
-        return "p"
-
-def process_xyz(xyz_file):
-    """Process a single .xyz file."""
     try:
-        base_name = Path(xyz_file).stem
-        job_dir = os.path.join(MOLECULES_DIR, base_name)
-        hsd_file = os.path.join(job_dir, "dftb_in.hsd")
-        job_log = os.path.join(job_dir, "process.log")
+        m = Chem.MolFromSmiles(sml, sanitize=True)
+        if m is None:
+            logging.error(f"Failed to create molecule for ID {mol_id} with SMILES {sml}")
+            return f"Skipping ID {mol_id}: Invalid SMILES"
 
-        # Validate input file
-        if not os.access(xyz_file, os.R_OK):
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: Cannot read {xyz_file} at {datetime.now()}\n")
-            return
-
-        # Create job directory with retry
-        for attempt in range(1, 4):
-            try:
-                os.makedirs(job_dir, exist_ok=True)
-                break
-            except OSError:
-                with open(LOG_FILE, "a") as log:
-                    log.write(f"Warning: Failed to create {job_dir} (attempt {attempt}) at {datetime.now()}\n")
-                time.sleep(1)
-        if not os.path.isdir(job_dir):
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: Cannot create {job_dir} after 3 attempts at {datetime.now()}\n")
-            return
-
-        # Create process.log explicitly
-        try:
-            with open(job_log, "w"):
-                pass
-        except OSError:
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: Cannot create {job_log} at {datetime.now()}\n")
-            return
-
-        # Extract unique elements from .xyz file
-        elements = set()
-        try:
-            with open(xyz_file, "r") as f:
-                lines = f.readlines()
-                natoms = int(lines[0].strip())
-                for line in lines[2:2 + natoms]:
-                    if line.strip() and len(line.split()) > 0:
-                        elements.add(line.split()[0])
-        except (ValueError, IndexError, OSError):
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: No elements found in {xyz_file} at {datetime.now()}\n")
-            with open(job_log, "a") as log:
-                log.write(f"Error: No elements found in {xyz_file} at {datetime.now()}\n")
-            return
-
-        if not elements:
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: No elements found in {xyz_file} at {datetime.now()}\n")
-            with open(job_log, "a") as log:
-                log.write(f"Error: No elements found in {xyz_file} at {datetime.now()}\n")
-            return
-
-        # Generate dftb_in.hsd
-        hsd_content = f"""Geometry = xyzFormat {{
-   <<< '../../{XYZ_DIR}/{base_name}.xyz'
-}}
-
-Driver = GeometryOptimization {{
-   Optimizer = Rational {{}}
-   MaxSteps = 10000
-   OutputPrefix = '{base_name}'
-   Convergence {{ GradElem = 1E-4 }}
-}}
-
-Hamiltonian = DFTB {{
-   SCC = Yes
-   SCCTolerance = 1e-8
-   MaxSCCIterations = 1000
-
-   MaxAngularMomentum = {{
-"""
-        for element in sorted(elements):
-            momentum = get_angular_momentum(element)
-            hsd_content += f'      {element} = "{momentum}"\n'
-        hsd_content += f"""   }}
-   SlaterKosterFiles = Type2FileNames {{
-      Prefix = '../../{SK_DIR}/'
-      Separator = '-'
-      Suffix = '.skf'
-      LowerCaseTypeName = No
-   }}
-}}
-
-ParserOptions {{
-   ParserVersion = 14
-}}
-"""
-        try:
-            with open(hsd_file, "w") as f:
-                f.write(hsd_content)
-        except OSError:
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: Cannot create {hsd_file} at {datetime.now()}\n")
-            with open(job_log, "a") as log:
-                log.write(f"Error: Cannot create {hsd_file} at {datetime.now()}\n")
-            return
-
-        # Run DFTB+ in job directory
-        try:
-            os.chdir(job_dir)
-            result = subprocess.run(
-                dftbplus_cmd + [hsd_file],
-                capture_output=True,
-                text=True,
-                timeout=600  # 10 minutes
-            )
-            if result.returncode == 0:
-                with open(LOG_FILE, "a") as log:
-                    log.write(f"Successfully completed DFTB+ for {xyz_file} at {datetime.now()}\n")
-                with open(job_log, "a") as log:
-                    log.write(f"Successfully completed DFTB+ for {xyz_file} at {datetime.now()}\n")
-            else:
-                with open(LOG_FILE, "a") as log:
-                    log.write(f"Error running DFTB+ for {xyz_file} at {datetime.now()}\n")
-                    log.write(f"DFTB+ output for {xyz_file}:\n{result.stderr}\n")
-                with open(job_log, "a") as log:
-                    log.write(f"Error running DFTB+ for {xyz_file} at {datetime.now()}\n")
-                    log.write(f"DFTB+ output for {xyz_file}:\n{result.stderr}\n")
-        except (subprocess.TimeoutExpired, subprocess.SubprocessError, OSError) as e:
-            with open(LOG_FILE, "a") as log:
-                log.write(f"Error: Failed to run DFTB+ for {xyz_file} at {datetime.now()}: {str(e)}\n")
-            with open(job_log, "a") as log:
-                log.write(f"Error: Failed to run DFTB+ for {xyz_file} at {datetime.now()}: {str(e)}\n")
-        finally:
-            os.chdir(os.path.dirname(os.path.abspath(__file__)) or ".")
+        m_h = Chem.AddHs(m)
+        params = AllChem.ETKDGv3()
+        params.useRandomCoords = True
+        params.maxIterations = 1000
+        params.numThreads = 1
+        params.randomSeed = 42
+        
+        if AllChem.EmbedMolecule(m_h, params) == -1:
+            logging.error(f"Embedding failed for ID {mol_id} with SMILES {sml}")
+            return f"Skipping ID {mol_id}: Embedding failed"
+        
+        xyz_filename = os.path.join(output_dir, f"{mol_id}.xyz")
+        write_xyz_file(m_h, xyz_filename)
+        
     except Exception as e:
-        with open(LOG_FILE, "a") as log:
-            log.write(f"Exception processing {xyz_file} at {datetime.now()}: {str(e)}\n")
+        logging.error(f"Error processing ID {mol_id} with SMILES {sml}: {str(e)}")
+        return f"Skipping ID {mol_id}: Exception occurred - {str(e)}"
 
-def main():
-    print(f"Number of CPU cores available: {os.cpu_count()}")
+# Replace only the first occurrence of 'C=C' with '[Br]C(Br)'
+def replace_first_cce(smiles):
+    mol = Chem.MolFromSmiles(smiles)
+    if mol is None:
+        raise ValueError("Invalid SMILES string")
     
-    # Find all .xyz files
-    xyz_files = glob.glob(os.path.join(XYZ_DIR, "*.xyz"))
-    if not xyz_files:
-        with open(LOG_FILE, "a") as log:
-            log.write(f"Error: No .xyz files found in {XYZ_DIR} at {datetime.now()}\n")
-        print(f"Error: No .xyz files found in {XYZ_DIR} at {datetime.now()}")
-        return
+    # Find the first C=C double bond
+    for bond in mol.GetBonds():
+        if bond.GetBondType() == Chem.BondType.DOUBLE:
+            atom1 = bond.GetBeginAtom()
+            atom2 = bond.GetEndAtom()
+            if atom1.GetSymbol() == 'C' and atom2.GetSymbol() == 'C':
+                # Instead of SMILES replacement, modify the molecule
+                mol = Chem.RWMol(mol)
+                bond.SetBondType(Chem.BondType.SINGLE)
+                # Add Br atoms
+                br1 = mol.AddAtom(Chem.Atom('Br'))
+                br2 = mol.AddAtom(Chem.Atom('Br'))
+                mol.AddBond(atom1.GetIdx(), br1, Chem.BondType.SINGLE)
+                mol.AddBond(atom2.GetIdx(), br2, Chem.BondType.SINGLE)
+                return Chem.MolToSmiles(mol)
+    
+    return smiles  # No double bond found, return original
 
-    print(f"Found {len(xyz_files)} .xyz files to process at {datetime.now()}")
-    with open(LOG_FILE, "a") as log:
-        log.write(f"Found {len(xyz_files)} .xyz files to process at {datetime.now()}\n")
+# Fixed monomers and their IDs (assuming these IDs exist in df)
+# fixed_monomer_1 = 'C=CC(=O)O'
+# fixed_monomer_2 = 'C=CC(=O)OCCO'
 
-    # Run DFTB+ in parallel with 20 processes
-    with Pool(processes=20) as pool:
-        pool.map(process_xyz, xyz_files)
+# # Fix the fixed monomers smiles to bromo form
+# fixed1_bromo = replace_first_cce(fixed_monomer_1)
+# fixed2_bromo = replace_first_cce(fixed_monomer_2)
 
-    with open(LOG_FILE, "a") as log:
-        log.write(f"All DFTB+ jobs completed at {datetime.now()}\n")
-    print(f"All DFTB+ jobs completed at {datetime.now()}")
+# # Filter dataframe for candidates that contain exactly one 'C=C' (to avoid valence problems)
+# df_candidates = df[df['smiles'].str.count('C=C') == 1].copy()
 
-if __name__ == "__main__":
-    main()
+# # We will take 50 candidates containing one 'C=C' for each fixed monomer
+# # For reproducibility, sort and take top 50
+# df_candidates = df_candidates.reset_index(drop=True)
+
+# candidates_smls = df_candidates['smiles'].tolist()[:250]
+
+# # Replace first 'C=C' occurrence with bromo for candidates
+# candidates_bromo = [replace_first_cce(s) for s in candidates_smls]
+
+# Function to build copolymer and save xyz file
+def build_and_save_copolymer(sml1_bromo, sml2_bromo, out_name):
+    try:
+        bb1 = stk.BuildingBlock(sml1_bromo, [stk.BromoFactory()])
+        bb2 = stk.BuildingBlock(sml2_bromo, [stk.BromoFactory()])
+        
+        polymer = stk.ConstructedMolecule(
+            topology_graph=stk.polymer.Linear(
+                building_blocks=(bb1, bb2),
+                repeating_unit='AB',
+                num_repeating_units=3,
+                optimizer=stk.Collapser(scale_steps=False),
+            ),
+        )
+        
+        rdkit_polymer = polymer.to_rdkit_mol()
+        rdkit_polymer = Chem.AddHs(rdkit_polymer)
+        Chem.SanitizeMol(rdkit_polymer)
+        
+        # Embed if necessary (sometimes stk embedding is enough, but we do ETKDG for 3D coords)
+        params = AllChem.ETKDGv3()
+        params.useRandomCoords = True
+        params.maxIterations = 1000
+        params.numThreads = 1
+        params.randomSeed = 42
+        if AllChem.EmbedMolecule(rdkit_polymer, params) == -1:
+            logging.warning(f"Embedding failed for copolymer {out_name}")
+        
+        AllChem.MMFFOptimizeMolecule(rdkit_polymer)
+        
+        polymer = polymer.with_position_matrix(
+            position_matrix=rdkit_polymer.GetConformer().GetPositions()
+        )
+        
+        # Write .xyz file
+        xyz_filename = os.path.join(output_dir, f"{out_name}.xyz")
+        write_xyz_file(polymer.to_rdkit_mol(), xyz_filename)
+        print(f"Saved copolymer: {xyz_filename}")
+        
+    except Exception as e:
+        logging.error(f"Error building copolymer {out_name}: {str(e)}")
+
+# First: generate xyz files for all molecules in original df (monomers)
+print("Generating .xyz files for original monomers...")
+results = Parallel(n_jobs=-1, backend='loky')(
+    delayed(process_row)(row) for _, row in tqdm(df.iterrows(), total=len(df))
+)
+
+# Function to wrap build_and_save_copolymer for parallel execution
+def process_copolymer(sml1_bromo, sml2_bromo, out_name):
+    try:
+        build_and_save_copolymer(sml1_bromo, sml2_bromo, out_name)
+        return f"Completed copolymer: {out_name}"
+    except Exception as e:
+        logging.error(f"Failed to process copolymer {out_name}: {str(e)}")
+        return f"Skipping copolymer {out_name}: Exception occurred - {str(e)}"
+
+# Generate tasks for all copolymers
+# copolymer_tasks = []
+
+# # Tasks for fixed1 + candidates
+# for i, cand_bromo in enumerate(candidates_bromo, start=1):
+#     copolymer_tasks.append((fixed1_bromo, cand_bromo, f"copoly_fixed1_cand{i}"))
+
+# # Tasks for fixed2 + candidates
+# for i, cand_bromo in enumerate(candidates_bromo, start=1):
+#     copolymer_tasks.append((fixed2_bromo, cand_bromo, f"copoly_fixed2_cand{i}"))
+
+# # Task for fixed1 + fixed2
+# copolymer_tasks.append((fixed1_bromo, fixed2_bromo, "copoly_fixed1_fixed2"))
+
+# # Parallel execution of copolymer generation
+# print("Building all copolymers in parallel...")
+# results = Parallel(n_jobs=-1, backend='loky')(
+#     delayed(process_copolymer)(sml1_bromo, sml2_bromo, out_name)
+#     for sml1_bromo, sml2_bromo, out_name in tqdm(copolymer_tasks, total=len(copolymer_tasks))
+# )
