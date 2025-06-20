@@ -6,7 +6,6 @@ from tqdm import tqdm
 import logging
 from joblib import Parallel, delayed
 import stk
-import numpy as np
 
 # Set up logging to suppress UFFTYPER warnings and capture errors
 logging.getLogger('rdkit').setLevel(logging.ERROR)  # Suppress RDKit warnings
