@@ -14,10 +14,7 @@ logging.basicConfig(filename='xyz_generation_errors.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load and merge data
-df = pd.read_csv('PubChem_compound_text_Acrylate.csv')
-df = df.rename(columns={' cid': 'id'})
-pub_chem_db = pd.read_csv('pubchem_db.txt', sep='\t', names=['id', 'smiles'])
-df = df.merge(pub_chem_db, on='id')
+df = pd.read_csv('pubchem_dataset.csv')
 
 # Create output directory if it doesn't exist
 output_dir = 'xyz_files'
