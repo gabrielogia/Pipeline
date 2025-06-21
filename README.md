@@ -87,7 +87,7 @@ python run_dftb.py
 2. Run:
    ```bash
    export OMP_NUM_THREADS=1
-   export DFTBPLUS_PATH=$(dirname $(which dftb+))
+   export DFTBPLUS_PATH=$(which dftb+)
    python get_xyz.py
    python run_dftb.py
    ```

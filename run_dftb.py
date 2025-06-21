@@ -27,7 +27,6 @@ if DFTBPLUS_PATH and os.path.isfile(DFTBPLUS_PATH):
 else:
     # Try common locations and psi4conda path
     possible_paths = [
-        "/home/jgduarte/psi4conda/bin/dftb+",  # Your specific path
         "/usr/local/bin/dftb+",
         "/usr/bin/dftb+",
         os.path.expanduser("~/bin/dftb+"),
@@ -43,7 +42,7 @@ else:
         subprocess.run(dftbplus_cmd + ["--version"], capture_output=True, check=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
         with open(LOG_FILE, "a") as log:
-            log.write("Error: dftb+ not found in PATH or common locations. Set DFTBPLUS_PATH environment variable or ensure /home/jgduarte/psi4conda/bin/dftb+ is accessible.\n")
+            log.write("Error: dftb+ not found in PATH or common locations. Set DFTBPLUS_PATH environment variable\n")
         raise SystemExit(1)
 
 def get_angular_momentum(element):
@@ -146,11 +145,16 @@ Hamiltonian = DFTB {{
             momentum = get_angular_momentum(element)
             hsd_content += f'      {element} = "{momentum}"\n'
         hsd_content += f"""   }}
+        
    SlaterKosterFiles = Type2FileNames {{
       Prefix = '../../{SK_DIR}/'
       Separator = '-'
       Suffix = '.skf'
       LowerCaseTypeName = No
+   }}
+
+   Filling = Fermi {{
+    Temperature [K] = 300
    }}
 }}
 
@@ -158,6 +162,15 @@ Analysis = {{
   Polarisability = {{
     Static = Yes
     }}
+}}
+
+ElectronDynamics = {{
+   Steps = 40000
+   TimeStep [au] = 0.1
+   Perturbation = Kick {{
+     PolarizationDirection = all
+   }}
+   FieldStrength [v/a] = 0.001
 }}
 
 ParserOptions {{
