@@ -1,3 +1,4 @@
 molecules/
 xyz_files/
 .DS_STORE
+*.log
