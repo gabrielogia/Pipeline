@@ -70,7 +70,7 @@ def process_molecules_folder(root_folder):
     return [item for sublist in results for item in sublist]
 
 def main():
-    molecules_folder = "reduced_molecules"
+    molecules_folder = "molecules"
     if not os.path.exists(molecules_folder):
         print(f"Error: The folder '{molecules_folder}' does not exist.")
         return
