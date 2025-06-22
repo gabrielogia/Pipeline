@@ -2,3 +2,5 @@ molecules/
 xyz_files/
 .DS_STORE
 *.log
+molecules_old/
+xyz_files_old/

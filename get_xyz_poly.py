@@ -120,7 +120,7 @@ def build_and_save_homopolymer(sml, mol_id):
             topology_graph=stk.polymer.Linear(
                 building_blocks=(bb1,bb2),
                 repeating_unit='AB',
-                num_repeating_units=8,
+                num_repeating_units=4,
                 optimizer=stk.Collapser(scale_steps=False),
             ),
         )
